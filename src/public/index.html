@@ -10,8 +10,422 @@
     />
     <link rel="canonical" href="https://mediamanagement.apps.osaas.io" />
     <link rel="stylesheet" href="/style.css" />
+    <style>
+      /* Extra styles not covered by style.css */
+      .toast-container {
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .toast {
+        padding: 0.75rem 1.25rem;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: white;
+        animation: toastIn 0.2s ease;
+        max-width: 360px;
+      }
+
+      .toast-success { background: var(--success-color); }
+      .toast-error   { background: var(--danger-color); }
+      .toast-info    { background: var(--secondary-color); }
+
+      @keyframes toastIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
+      /* Loading spinner */
+      .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+      }
+
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      .loading-overlay {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4rem;
+        gap: 0.75rem;
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+      }
+
+      /* Form fields in detail panel */
+      .field-label {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.375rem;
+        margin-top: 1rem;
+      }
+
+      .field-label:first-child { margin-top: 0; }
+
+      .detail-input {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        background: var(--background);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text-primary);
+        font-size: 0.875rem;
+        font-family: inherit;
+        outline: none;
+        transition: border-color 0.2s;
+        resize: none;
+      }
+
+      .detail-input:focus { border-color: var(--primary-color); }
+
+      .detail-value {
+        font-size: 0.875rem;
+        color: var(--text-primary);
+        word-break: break-all;
+      }
+
+      .detail-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.8125rem;
+      }
+
+      .detail-row:last-child { border-bottom: none; }
+
+      .detail-row-label {
+        color: var(--text-secondary);
+        flex-shrink: 0;
+        margin-right: 1rem;
+      }
+
+      .detail-row-value {
+        text-align: right;
+        word-break: break-all;
+      }
+
+      .detail-actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1.25rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--border);
+      }
+
+      .btn-danger {
+        background: transparent;
+        color: var(--danger-color);
+        border: 1px solid var(--danger-color);
+      }
+
+      .btn-danger:hover { background: rgba(239,68,68,0.1); }
+
+      /* Proxy status badge */
+      .proxy-badge {
+        display: inline-block;
+        padding: 0.125rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      .proxy-badge.pending    { background: rgba(100,116,139,0.2); color: var(--secondary-color); }
+      .proxy-badge.processing { background: rgba(245,158,11,0.15); color: var(--warning-color); }
+      .proxy-badge.ready      { background: rgba(16,185,129,0.15); color: var(--success-color); }
+      .proxy-badge.failed     { background: rgba(239,68,68,0.15);  color: var(--danger-color); }
+
+      /* Asset list row */
+      .asset-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.75rem 1.5rem;
+        border-bottom: 1px solid var(--border);
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+
+      .asset-row:hover { background: var(--surface-hover); }
+
+      .asset-row-thumb {
+        width: 48px;
+        height: 48px;
+        object-fit: cover;
+        border-radius: 4px;
+        background: var(--surface-hover);
+        flex-shrink: 0;
+      }
+
+      .asset-row-name {
+        flex: 1;
+        font-size: 0.875rem;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .asset-row-meta {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        flex-shrink: 0;
+      }
+
+      /* Collections section */
+      .section-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.5rem;
+      }
+
+      .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.25rem;
+      }
+
+      .section-header h2 {
+        font-size: 1.125rem;
+        font-weight: 600;
+      }
+
+      .collection-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 0.75rem;
+        cursor: pointer;
+        transition: border-color 0.15s;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .collection-card:hover { border-color: var(--primary-color); }
+
+      .collection-card-info h4 {
+        font-size: 0.9375rem;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+      }
+
+      .collection-card-info p {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+      }
+
+      .collection-card-count {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        margin-left: 1rem;
+      }
+
+      .btn-icon {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        padding: 0.375rem;
+        border-radius: 4px;
+        font-size: 1rem;
+        transition: color 0.15s, background 0.15s;
+        display: inline-flex;
+        align-items: center;
+      }
+
+      .btn-icon:hover {
+        color: var(--danger-color);
+        background: rgba(239,68,68,0.1);
+      }
+
+      /* Storage section */
+      .storage-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .storage-stat-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1.25rem;
+      }
+
+      .storage-stat-label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
+      }
+
+      .storage-stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
+
+      .storage-breakdown-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+      }
+
+      .storage-breakdown-table th,
+      .storage-breakdown-table td {
+        text-align: left;
+        padding: 0.625rem 0.75rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .storage-breakdown-table th {
+        color: var(--text-secondary);
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      /* Confirm-upload form inside modal */
+      .confirm-form {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-top: 1.25rem;
+      }
+
+      .confirm-form label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.25rem;
+        display: block;
+      }
+
+      .confirm-form input,
+      .confirm-form textarea {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        background: var(--background);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text-primary);
+        font-size: 0.875rem;
+        font-family: inherit;
+        outline: none;
+        resize: none;
+        transition: border-color 0.2s;
+      }
+
+      .confirm-form input:focus,
+      .confirm-form textarea:focus { border-color: var(--primary-color); }
+
+      .confirm-form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+      }
+
+      /* Pagination */
+      .pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 1rem;
+        border-top: 1px solid var(--border);
+      }
+
+      .pagination-info {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+      }
+
+      /* Back button in collections view */
+      .back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+        cursor: pointer;
+        background: none;
+        border: none;
+        padding: 0.25rem 0;
+        margin-bottom: 0.75rem;
+        transition: color 0.15s;
+      }
+
+      .back-btn:hover { color: var(--text-primary); }
+
+      /* Tag chips */
+      .tag-chip {
+        display: inline-block;
+        padding: 0.125rem 0.5rem;
+        background: rgba(99,102,241,0.15);
+        color: var(--primary-color);
+        border-radius: 4px;
+        font-size: 0.75rem;
+        margin: 0.125rem;
+      }
+
+      /* Thumbnail placeholder (no image) */
+      .thumb-placeholder {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        background: var(--surface-hover);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        color: var(--text-secondary);
+      }
+
+      .thumb-placeholder-sm {
+        width: 48px;
+        height: 48px;
+        border-radius: 4px;
+        background: var(--surface-hover);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        color: var(--text-secondary);
+        flex-shrink: 0;
+      }
+    </style>
   </head>
   <body>
+    <!-- Toast container -->
+    <div class="toast-container" id="toastContainer"></div>
+
     <!-- Landing page (unauthenticated) -->
     <div id="landing" class="hidden">
       <header class="landing-header">
@@ -44,9 +458,9 @@
           <span class="sidebar-title">Media Management</span>
         </div>
         <ul class="sidebar-nav">
-          <li class="nav-item active" data-view="library">All Assets</li>
-          <li class="nav-item" data-view="collections">Collections</li>
-          <li class="nav-item" data-view="storage">Storage</li>
+          <li class="nav-item active" data-section="assets">All Assets</li>
+          <li class="nav-item" data-section="collections">Collections</li>
+          <li class="nav-item" data-section="storage">Storage</li>
         </ul>
         <div class="sidebar-footer">
           <div class="plan-badge" id="planBadge">FREE</div>
@@ -56,8 +470,8 @@
         </div>
       </nav>
 
-      <main class="main-content">
-        <!-- Upgrade banner for non-functional plans -->
+      <main class="main-content" id="mainContent">
+        <!-- Upgrade banner for demo mode -->
         <div id="upgradeBanner" class="upgrade-banner hidden">
           <p>
             You're viewing a demo library.
@@ -66,50 +480,85 @@
           </p>
         </div>
 
-        <!-- Toolbar -->
-        <div class="toolbar">
-          <div class="search-bar">
-            <input
-              type="text"
-              id="searchInput"
-              placeholder="Search assets..."
-              autocomplete="off"
-            />
+        <!-- Assets section -->
+        <div id="sectionAssets">
+          <!-- Toolbar -->
+          <div class="toolbar">
+            <div class="search-bar">
+              <input
+                type="text"
+                id="searchInput"
+                placeholder="Search assets..."
+                autocomplete="off"
+              />
+            </div>
+            <div class="toolbar-actions">
+              <button class="btn btn-primary" id="uploadBtn" onclick="openUpload()">
+                Upload
+              </button>
+              <div class="view-toggle">
+                <button class="view-btn active" data-view="grid" title="Grid view">
+                  &#9638;
+                </button>
+                <button class="view-btn" data-view="list" title="List view">
+                  &#9776;
+                </button>
+              </div>
+            </div>
           </div>
-          <div class="toolbar-actions">
-            <button class="btn btn-primary" id="uploadBtn" onclick="openUpload()">
-              Upload
-            </button>
-            <div class="view-toggle">
-              <button class="view-btn active" data-view="grid" title="Grid view">
-                &#9638;
-              </button>
-              <button class="view-btn" data-view="list" title="List view">
-                &#9776;
-              </button>
+
+          <!-- Asset grid -->
+          <div id="assetGrid" class="asset-grid">
+            <div class="loading-overlay">
+              <div class="spinner" style="border-top-color: var(--primary-color); border-color: var(--border); border-top-color: var(--primary-color);"></div>
+              Loading assets...
+            </div>
+          </div>
+
+          <!-- Asset list (hidden by default) -->
+          <div id="assetList" class="asset-list hidden"></div>
+
+          <!-- Pagination -->
+          <div id="paginationBar" class="pagination hidden">
+            <button class="btn btn-sm btn-secondary" id="prevPage" onclick="changePage(-1)">Previous</button>
+            <span class="pagination-info" id="pageInfo"></span>
+            <button class="btn btn-sm btn-secondary" id="nextPage" onclick="changePage(1)">Next</button>
+          </div>
+        </div>
+
+        <!-- Collections section -->
+        <div id="sectionCollections" class="section-content hidden">
+          <div class="section-header">
+            <h2>Collections</h2>
+            <button class="btn btn-primary btn-sm" id="newCollectionBtn" onclick="promptCreateCollection()">New Collection</button>
+          </div>
+          <div id="collectionsContainer">
+            <div class="loading-overlay">
+              <div class="spinner" style="border-color: var(--border); border-top-color: var(--primary-color);"></div>
+              Loading collections...
             </div>
           </div>
         </div>
 
-        <!-- Asset grid -->
-        <div id="assetGrid" class="asset-grid">
-          <div class="empty-state">
-            <h2>Your media library is empty</h2>
-            <p>Upload your first asset to get started.</p>
-            <button class="btn btn-primary" onclick="openUpload()">
-              Upload Media
-            </button>
+        <!-- Storage section -->
+        <div id="sectionStorage" class="section-content hidden">
+          <div class="section-header">
+            <h2>Storage</h2>
+            <button class="btn btn-sm btn-secondary" onclick="loadStorageInfo()">Refresh</button>
+          </div>
+          <div id="storageContainer">
+            <div class="loading-overlay">
+              <div class="spinner" style="border-color: var(--border); border-top-color: var(--primary-color);"></div>
+              Loading storage info...
+            </div>
           </div>
         </div>
-
-        <!-- Asset list (hidden by default) -->
-        <div id="assetList" class="asset-list hidden"></div>
       </main>
 
       <!-- Asset detail panel -->
       <aside id="detailPanel" class="detail-panel hidden">
         <div class="detail-header">
-          <h3 id="detailTitle">Asset Title</h3>
+          <h3 id="detailTitle">Asset</h3>
           <button class="btn-close" onclick="closeDetail()">&times;</button>
         </div>
         <div id="detailPreview" class="detail-preview"></div>
@@ -118,8 +567,8 @@
     </div>
 
     <!-- Upload modal -->
-    <div id="uploadModal" class="modal hidden">
-      <div class="modal-content">
+    <div id="uploadModal" class="modal hidden" onclick="handleModalBackdropClick(event)">
+      <div class="modal-content" onclick="event.stopPropagation()">
         <div class="modal-header">
           <h3>Upload Media</h3>
           <button class="btn-close" onclick="closeUpload()">&times;</button>
@@ -143,130 +592,1069 @@
       </div>
     </div>
 
+    <!-- Create collection modal -->
+    <div id="collectionModal" class="modal hidden" onclick="handleCollectionModalBackdrop(event)">
+      <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 420px;">
+        <div class="modal-header">
+          <h3 id="collectionModalTitle">New Collection</h3>
+          <button class="btn-close" onclick="closeCollectionModal()">&times;</button>
+        </div>
+        <div class="confirm-form">
+          <div>
+            <label for="collectionNameInput">Name</label>
+            <input type="text" id="collectionNameInput" placeholder="Collection name" maxlength="100" />
+          </div>
+          <div>
+            <label for="collectionDescInput">Description (optional)</label>
+            <textarea id="collectionDescInput" rows="3" placeholder="Describe this collection..."></textarea>
+          </div>
+          <div class="confirm-form-actions">
+            <button class="btn btn-secondary btn-sm" onclick="closeCollectionModal()">Cancel</button>
+            <button class="btn btn-primary btn-sm" onclick="submitCollectionForm()">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script>
-      // --- App state ---
-      let authState = { loggedIn: false, plan: null, isPaid: false, isFunctional: false };
-      let currentView = "library";
+      // =========================================================
+      // STATE
+      // =========================================================
+      const state = {
+        loggedIn: false,
+        plan: null,
+        isFunctional: false,
+        view: 'grid',
+        currentSection: 'assets',
+        assets: [],
+        totalAssets: 0,
+        selectedAsset: null,
+        collections: [],
+        searchQuery: '',
+        page: 1,
+        limit: 20,
+        isDemo: false,
+        selectedCollection: null,
+        uploading: false,
+        // For editing collection
+        editingCollectionId: null,
+        proxyPollers: {},
+      };
 
-      // --- Auth ---
-      function signIn() {
-        window.location.href = "/auth/signin";
+      // =========================================================
+      // TOAST NOTIFICATIONS
+      // =========================================================
+      function showToast(message, type = 'info', duration = 4000) {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transition = 'opacity 0.3s';
+          setTimeout(() => toast.remove(), 300);
+        }, duration);
       }
 
-      function signOut() {
-        window.location.href = "/auth/signout";
-      }
+      // =========================================================
+      // AUTH
+      // =========================================================
+      function signIn() { window.location.href = '/auth/signin'; }
+      function signOut() { window.location.href = '/auth/signout'; }
 
       async function checkAuth() {
         try {
-          const res = await fetch("/auth/status");
-          authState = await res.json();
+          const res = await fetch('/auth/status');
+          const data = await res.json();
+          state.loggedIn = !!data.loggedIn;
+          state.plan = data.plan || null;
+          state.isFunctional = !!data.isFunctional;
+          state.isDemo = state.loggedIn && !state.isFunctional;
         } catch {
-          authState = { loggedIn: false, plan: null, isPaid: false, isFunctional: false };
+          state.loggedIn = false;
+          state.plan = null;
+          state.isFunctional = false;
+          state.isDemo = false;
         }
         render();
       }
 
-      // --- Render ---
+      // =========================================================
+      // RENDER / NAVIGATION
+      // =========================================================
       function render() {
-        const landing = document.getElementById("landing");
-        const app = document.getElementById("app");
-        const upgradeBanner = document.getElementById("upgradeBanner");
-        const planBadge = document.getElementById("planBadge");
-        const uploadBtn = document.getElementById("uploadBtn");
+        const landing = document.getElementById('landing');
+        const app = document.getElementById('app');
 
-        if (!authState.loggedIn) {
-          landing.classList.remove("hidden");
-          app.classList.add("hidden");
+        if (!state.loggedIn) {
+          landing.classList.remove('hidden');
+          app.classList.add('hidden');
           return;
         }
 
-        landing.classList.add("hidden");
-        app.classList.remove("hidden");
-        planBadge.textContent = authState.plan || "FREE";
+        landing.classList.add('hidden');
+        app.classList.remove('hidden');
 
-        if (!authState.isFunctional) {
-          upgradeBanner.classList.remove("hidden");
-          uploadBtn.disabled = true;
-          loadDemoLibrary();
+        // Plan badge
+        document.getElementById('planBadge').textContent = state.plan || 'FREE';
+
+        // Upgrade banner
+        const banner = document.getElementById('upgradeBanner');
+        if (state.isDemo) {
+          banner.classList.remove('hidden');
         } else {
-          upgradeBanner.classList.add("hidden");
-          uploadBtn.disabled = false;
+          banner.classList.add('hidden');
+        }
+
+        // Upload button
+        const uploadBtn = document.getElementById('uploadBtn');
+        if (uploadBtn) {
+          uploadBtn.disabled = !state.isFunctional;
+          uploadBtn.title = state.isFunctional ? '' : 'Upgrade to PROFESSIONAL to upload';
+        }
+
+        // Collections / storage buttons hidden in demo
+        const newCollectionBtn = document.getElementById('newCollectionBtn');
+        if (newCollectionBtn) newCollectionBtn.classList.toggle('hidden', state.isDemo);
+
+        // Show the right section
+        showSection(state.currentSection);
+      }
+
+      function showSection(section) {
+        ['assets', 'collections', 'storage'].forEach(s => {
+          document.getElementById(`section${capitalize(s)}`).classList.toggle('hidden', s !== section);
+        });
+
+        // Update sidebar active state
+        document.querySelectorAll('.nav-item').forEach(item => {
+          item.classList.toggle('active', item.dataset.section === section);
+        });
+
+        state.currentSection = section;
+
+        if (section === 'assets') {
           loadAssets();
+        } else if (section === 'collections') {
+          loadCollections();
+        } else if (section === 'storage') {
+          loadStorageInfo();
         }
       }
 
-      // --- Assets ---
+      function capitalize(str) { return str.charAt(0).toUpperCase() + str.slice(1); }
+
+      // Sidebar navigation
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const section = item.dataset.section;
+          if (section) showSection(section);
+        });
+      });
+
+      // =========================================================
+      // API HELPER
+      // =========================================================
+      async function apiFetch(url, options = {}) {
+        const res = await fetch(url, {
+          headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+          ...options,
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+        return data;
+      }
+
+      // =========================================================
+      // ASSETS
+      // =========================================================
       async function loadAssets() {
-        // TODO: Fetch from /api/assets
+        setGridLoading(true);
+
+        if (state.isDemo) {
+          await loadDemoAssets();
+          return;
+        }
+
+        try {
+          const params = new URLSearchParams({
+            page: state.page,
+            limit: state.limit,
+            sort: 'createdAt',
+            order: 'desc',
+          });
+          if (state.searchQuery) {
+            // Use search endpoint instead
+            const data = await apiFetch(`/api/search?q=${encodeURIComponent(state.searchQuery)}&page=${state.page}&limit=${state.limit}`);
+            state.assets = data.assets || [];
+            state.totalAssets = data.total || 0;
+          } else {
+            if (state.selectedCollection) {
+              params.append('collectionId', state.selectedCollection);
+            }
+            const data = await apiFetch(`/api/assets?${params}`);
+            state.assets = data.assets || [];
+            state.totalAssets = data.total || 0;
+          }
+          renderAssets();
+        } catch (err) {
+          setGridLoading(false);
+          showToast(`Failed to load assets: ${err.message}`, 'error');
+          renderEmptyState('Failed to load assets', 'Please try refreshing the page.');
+        }
       }
 
-      function loadDemoLibrary() {
-        // TODO: Show pre-populated demo assets
+      async function loadDemoAssets() {
+        try {
+          const data = await apiFetch('/api/demo/assets');
+          state.assets = data.assets || [];
+          state.totalAssets = data.total || 0;
+          renderAssets();
+        } catch (err) {
+          setGridLoading(false);
+          showToast(`Failed to load demo assets: ${err.message}`, 'error');
+          renderEmptyState('No demo assets available', 'Sign up for a PROFESSIONAL plan to upload your own.');
+        }
       }
 
-      // --- Upload ---
+      function setGridLoading(loading) {
+        const grid = document.getElementById('assetGrid');
+        const list = document.getElementById('assetList');
+        const pagination = document.getElementById('paginationBar');
+        if (loading) {
+          grid.innerHTML = `<div class="loading-overlay"><div class="spinner" style="border-color: var(--border); border-top-color: var(--primary-color);"></div> Loading assets...</div>`;
+          list.innerHTML = '';
+          pagination.classList.add('hidden');
+        }
+      }
+
+      function renderAssets() {
+        const grid = document.getElementById('assetGrid');
+        const list = document.getElementById('assetList');
+        const pagination = document.getElementById('paginationBar');
+
+        if (state.assets.length === 0) {
+          const emptyMsg = state.isDemo
+            ? 'No demo assets found'
+            : state.searchQuery
+              ? 'No assets match your search'
+              : 'Your media library is empty';
+          const emptyHint = state.isDemo
+            ? 'Upgrade to PROFESSIONAL to upload your own media.'
+            : state.searchQuery
+              ? 'Try a different search term.'
+              : 'Upload your first asset to get started.';
+          renderEmptyState(emptyMsg, emptyHint);
+          pagination.classList.add('hidden');
+          return;
+        }
+
+        // Grid view
+        grid.innerHTML = state.assets.map(renderAssetCard).join('');
+
+        // List view
+        list.innerHTML = state.assets.map(renderAssetRow).join('');
+
+        // Pagination
+        const totalPages = Math.ceil(state.totalAssets / state.limit);
+        if (totalPages > 1) {
+          pagination.classList.remove('hidden');
+          document.getElementById('pageInfo').textContent = `Page ${state.page} of ${totalPages} (${state.totalAssets} assets)`;
+          document.getElementById('prevPage').disabled = state.page <= 1;
+          document.getElementById('nextPage').disabled = state.page >= totalPages;
+        } else {
+          pagination.classList.add('hidden');
+        }
+      }
+
+      function renderEmptyState(heading, hint) {
+        const grid = document.getElementById('assetGrid');
+        const uploadAction = (!state.isDemo)
+          ? `<button class="btn btn-primary" onclick="openUpload()">Upload Media</button>`
+          : `<a href="https://app.osaas.io" target="_blank" class="btn btn-primary">Upgrade Plan</a>`;
+
+        grid.innerHTML = `
+          <div class="empty-state">
+            <h2>${escHtml(heading)}</h2>
+            <p>${escHtml(hint)}</p>
+            ${uploadAction}
+          </div>`;
+      }
+
+      function renderAssetCard(asset) {
+        const thumb = asset.thumbnailUrl || '';
+        const duration = asset.duration ? formatDuration(asset.duration) : '';
+        const size = formatFileSize(asset.fileSize);
+        const proxyBadge = getProxyBadge(asset.proxyStatus);
+        const thumbHtml = thumb
+          ? `<img class="asset-card-thumb" src="${escHtml(thumb)}" alt="${escHtml(asset.title || asset.filename)}" onerror="this.outerHTML='<div class=\\'thumb-placeholder\\'>${mimeIcon(asset.mimeType)}</div>'">`
+          : `<div class="thumb-placeholder">${mimeIcon(asset.mimeType)}</div>`;
+
+        return `<div class="asset-card" data-id="${escHtml(asset.id)}" onclick="selectAsset('${escHtml(asset.id)}')">
+          ${thumbHtml}
+          <div class="asset-card-info">
+            <div class="asset-card-title">${escHtml(asset.title || asset.filename)}</div>
+            <div class="asset-card-meta">${escHtml(size)}${duration ? ' &middot; ' + escHtml(duration) : ''} ${proxyBadge}</div>
+          </div>
+        </div>`;
+      }
+
+      function renderAssetRow(asset) {
+        const thumb = asset.thumbnailUrl || '';
+        const duration = asset.duration ? formatDuration(asset.duration) : '';
+        const size = formatFileSize(asset.fileSize);
+        const thumbHtml = thumb
+          ? `<img class="asset-row-thumb" src="${escHtml(thumb)}" alt="" onerror="this.outerHTML='<div class=\\'thumb-placeholder-sm\\'>${mimeIcon(asset.mimeType)}</div>'">`
+          : `<div class="thumb-placeholder-sm">${mimeIcon(asset.mimeType)}</div>`;
+
+        return `<div class="asset-row" data-id="${escHtml(asset.id)}" onclick="selectAsset('${escHtml(asset.id)}')">
+          ${thumbHtml}
+          <span class="asset-row-name">${escHtml(asset.title || asset.filename)}</span>
+          <span class="asset-row-meta">${escHtml(size)}${duration ? ' &middot; ' + escHtml(duration) : ''}</span>
+        </div>`;
+      }
+
+      function getProxyBadge(status) {
+        if (!status || status === 'none') return '';
+        const labels = { pending: 'Pending', processing: 'Processing...', ready: 'Proxy Ready', failed: 'Proxy Failed' };
+        return `<span class="proxy-badge ${escHtml(status)}">${labels[status] || escHtml(status)}</span>`;
+      }
+
+      function mimeIcon(mimeType) {
+        if (!mimeType) return '&#128196;';
+        if (mimeType.startsWith('video/')) return '&#127909;';
+        if (mimeType.startsWith('audio/')) return '&#127925;';
+        if (mimeType.startsWith('image/')) return '&#128247;';
+        if (mimeType === 'application/pdf') return '&#128196;';
+        return '&#128196;';
+      }
+
+      function changePage(delta) {
+        const totalPages = Math.ceil(state.totalAssets / state.limit);
+        const newPage = state.page + delta;
+        if (newPage < 1 || newPage > totalPages) return;
+        state.page = newPage;
+        loadAssets();
+      }
+
+      // =========================================================
+      // SELECT / DETAIL PANEL
+      // =========================================================
+      async function selectAsset(id) {
+        try {
+          const data = await apiFetch(`/api/assets/${encodeURIComponent(id)}`);
+          state.selectedAsset = data.asset;
+          renderDetailPanel(data.asset);
+          document.getElementById('detailPanel').classList.remove('hidden');
+
+          // Start polling proxy status if processing
+          if (data.asset.proxyStatus === 'pending' || data.asset.proxyStatus === 'processing') {
+            startProxyPolling(id);
+          }
+        } catch (err) {
+          showToast(`Failed to load asset: ${err.message}`, 'error');
+        }
+      }
+
+      function renderDetailPanel(asset) {
+        document.getElementById('detailTitle').textContent = asset.title || asset.filename;
+
+        // Preview
+        const preview = document.getElementById('detailPreview');
+        if (asset.mimeType && asset.mimeType.startsWith('video/')) {
+          const src = asset.proxyStatus === 'ready' && asset.proxyUrl
+            ? asset.proxyUrl
+            : (asset.originalUrl || '');
+          preview.innerHTML = src
+            ? `<video controls src="${escHtml(src)}" style="width:100%;border-radius:6px;background:black;"></video>`
+            : `<div class="thumb-placeholder" style="border-radius:6px;">&#127909;</div>`;
+        } else if (asset.mimeType && asset.mimeType.startsWith('image/')) {
+          const src = asset.thumbnailUrl || asset.originalUrl || '';
+          preview.innerHTML = src
+            ? `<img src="${escHtml(src)}" alt="${escHtml(asset.filename)}" style="width:100%;border-radius:6px;">`
+            : `<div class="thumb-placeholder" style="border-radius:6px;">&#128247;</div>`;
+        } else if (asset.mimeType && asset.mimeType.startsWith('audio/')) {
+          const src = asset.originalUrl || '';
+          preview.innerHTML = src
+            ? `<div style="padding:1rem 0;"><audio controls src="${escHtml(src)}" style="width:100%;"></audio></div>`
+            : `<div class="thumb-placeholder" style="border-radius:6px;">&#127925;</div>`;
+        } else {
+          preview.innerHTML = `<div class="thumb-placeholder" style="border-radius:6px;">&#128196;</div>`;
+        }
+
+        // Metadata
+        const canEdit = state.isFunctional;
+        const tags = (asset.tags || []).join(', ');
+        const collectionsHtml = (asset.collections || []).map(c =>
+          `<span class="tag-chip">${escHtml(c.name || c)}</span>`
+        ).join('') || '<span style="color:var(--text-secondary);font-size:0.8125rem;">None</span>';
+
+        document.getElementById('detailMeta').innerHTML = `
+          <div style="margin-bottom: 1rem;">
+            <span class="field-label">Title</span>
+            ${canEdit
+              ? `<input class="detail-input" id="editTitle" value="${escHtml(asset.title || '')}" placeholder="Add a title..." />`
+              : `<div class="detail-value">${escHtml(asset.title || asset.filename)}</div>`
+            }
+
+            <span class="field-label">Description</span>
+            ${canEdit
+              ? `<textarea class="detail-input" id="editDescription" rows="3" placeholder="Add a description...">${escHtml(asset.description || '')}</textarea>`
+              : `<div class="detail-value">${escHtml(asset.description || '—')}</div>`
+            }
+
+            <span class="field-label">Tags</span>
+            ${canEdit
+              ? `<input class="detail-input" id="editTags" value="${escHtml(tags)}" placeholder="tag1, tag2, tag3" />`
+              : `<div>${(asset.tags || []).map(t => `<span class="tag-chip">${escHtml(t)}</span>`).join('') || '<span style="color:var(--text-secondary);font-size:0.8125rem;">None</span>'}</div>`
+            }
+          </div>
+
+          ${canEdit ? `
+            <div class="detail-actions" style="margin-bottom:1rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem;">
+              <button class="btn btn-primary btn-sm" onclick="saveMetadata('${escHtml(asset.id)}')">Save</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteAsset('${escHtml(asset.id)}')">Delete</button>
+            </div>` : ''}
+
+          <div style="margin-bottom: 0.75rem;">
+            <div class="detail-row">
+              <span class="detail-row-label">Filename</span>
+              <span class="detail-row-value">${escHtml(asset.filename)}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-row-label">Size</span>
+              <span class="detail-row-value">${escHtml(formatFileSize(asset.fileSize))}</span>
+            </div>
+            ${asset.duration ? `<div class="detail-row">
+              <span class="detail-row-label">Duration</span>
+              <span class="detail-row-value">${escHtml(formatDuration(asset.duration))}</span>
+            </div>` : ''}
+            ${asset.resolution ? `<div class="detail-row">
+              <span class="detail-row-label">Resolution</span>
+              <span class="detail-row-value">${escHtml(asset.resolution)}</span>
+            </div>` : ''}
+            <div class="detail-row">
+              <span class="detail-row-label">Type</span>
+              <span class="detail-row-value">${escHtml(asset.mimeType || '—')}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-row-label">Proxy</span>
+              <span class="detail-row-value" id="proxyStatusDisplay">${getProxyBadge(asset.proxyStatus) || '<span style="color:var(--text-secondary)">—</span>'}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-row-label">Created</span>
+              <span class="detail-row-value">${formatDate(asset.createdAt)}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-row-label">Updated</span>
+              <span class="detail-row-value">${formatDate(asset.updatedAt)}</span>
+            </div>
+          </div>
+
+          <span class="field-label">Collections</span>
+          <div id="assetCollections" style="margin-bottom:0.75rem;">${collectionsHtml}</div>
+          ${canEdit ? renderCollectionAssignmentUI(asset) : ''}
+        `;
+      }
+
+      function renderCollectionAssignmentUI(asset) {
+        const assigned = (asset.collections || []).map(c => c.id || c);
+        const available = state.collections.filter(c => !assigned.includes(c.id));
+        if (available.length === 0) return '';
+        const options = available.map(c =>
+          `<option value="${escHtml(c.id)}">${escHtml(c.name)}</option>`
+        ).join('');
+        return `
+          <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+            <select id="addToCollectionSelect" style="flex:1;padding:0.375rem 0.5rem;background:var(--background);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:0.8125rem;">
+              <option value="">Add to collection...</option>
+              ${options}
+            </select>
+            <button class="btn btn-secondary btn-sm" onclick="addAssetToCollection('${escHtml(asset.id)}')">Add</button>
+          </div>`;
+      }
+
+      function closeDetail() {
+        document.getElementById('detailPanel').classList.add('hidden');
+        state.selectedAsset = null;
+        stopAllProxyPolling();
+      }
+
+      async function saveMetadata(id) {
+        const titleEl = document.getElementById('editTitle');
+        const descEl = document.getElementById('editDescription');
+        const tagsEl = document.getElementById('editTags');
+        const updates = {
+          title: titleEl ? titleEl.value.trim() : undefined,
+          description: descEl ? descEl.value.trim() : undefined,
+          tags: tagsEl ? tagsEl.value.split(',').map(t => t.trim()).filter(Boolean) : undefined,
+        };
+        try {
+          const data = await apiFetch(`/api/assets/${encodeURIComponent(id)}/metadata`, {
+            method: 'PUT',
+            body: JSON.stringify(updates),
+          });
+          state.selectedAsset = data.asset;
+          document.getElementById('detailTitle').textContent = data.asset.title || data.asset.filename;
+          showToast('Metadata saved', 'success');
+          // Refresh asset list card
+          refreshAssetCard(id, data.asset);
+        } catch (err) {
+          showToast(`Failed to save: ${err.message}`, 'error');
+        }
+      }
+
+      function refreshAssetCard(id, asset) {
+        const card = document.querySelector(`.asset-card[data-id="${id}"]`);
+        if (card) card.outerHTML = renderAssetCard(asset);
+        const row = document.querySelector(`.asset-row[data-id="${id}"]`);
+        if (row) row.outerHTML = renderAssetRow(asset);
+      }
+
+      async function deleteAsset(id) {
+        if (!confirm('Delete this asset permanently? This cannot be undone.')) return;
+        try {
+          await apiFetch(`/api/assets/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          showToast('Asset deleted', 'success');
+          closeDetail();
+          state.assets = state.assets.filter(a => a.id !== id);
+          state.totalAssets = Math.max(0, state.totalAssets - 1);
+          renderAssets();
+        } catch (err) {
+          showToast(`Failed to delete: ${err.message}`, 'error');
+        }
+      }
+
+      async function addAssetToCollection(assetId) {
+        const select = document.getElementById('addToCollectionSelect');
+        const collectionId = select ? select.value : '';
+        if (!collectionId) return;
+        try {
+          await apiFetch(`/api/collections/${encodeURIComponent(collectionId)}/assets`, {
+            method: 'POST',
+            body: JSON.stringify({ assetId }),
+          });
+          showToast('Added to collection', 'success');
+          // Reload detail to show updated collections
+          await selectAsset(assetId);
+        } catch (err) {
+          showToast(`Failed to add to collection: ${err.message}`, 'error');
+        }
+      }
+
+      // =========================================================
+      // PROXY STATUS POLLING
+      // =========================================================
+      function startProxyPolling(assetId) {
+        if (state.proxyPollers[assetId]) return;
+        state.proxyPollers[assetId] = setInterval(async () => {
+          try {
+            const data = await apiFetch(`/api/assets/${encodeURIComponent(assetId)}/proxy-status`);
+            const display = document.getElementById('proxyStatusDisplay');
+            if (display) {
+              display.innerHTML = getProxyBadge(data.proxyStatus) || '<span style="color:var(--text-secondary)">—</span>';
+            }
+            if (data.proxyStatus === 'ready' || data.proxyStatus === 'failed') {
+              stopProxyPolling(assetId);
+              if (data.proxyStatus === 'ready') {
+                showToast('Proxy ready for playback', 'success');
+                // Reload detail with updated video
+                await selectAsset(assetId);
+              }
+            }
+          } catch {
+            stopProxyPolling(assetId);
+          }
+        }, 5000);
+      }
+
+      function stopProxyPolling(assetId) {
+        clearInterval(state.proxyPollers[assetId]);
+        delete state.proxyPollers[assetId];
+      }
+
+      function stopAllProxyPolling() {
+        Object.keys(state.proxyPollers).forEach(stopProxyPolling);
+      }
+
+      // =========================================================
+      // UPLOAD
+      // =========================================================
       function openUpload() {
-        if (!authState.isFunctional) return;
-        document.getElementById("uploadModal").classList.remove("hidden");
+        if (!state.isFunctional) {
+          showToast('Upgrade to PROFESSIONAL to upload media', 'info');
+          return;
+        }
+        const modal = document.getElementById('uploadModal');
+        const dropZone = document.getElementById('dropZone');
+        const progress = document.getElementById('uploadProgress');
+        modal.classList.remove('hidden');
+        dropZone.classList.remove('hidden');
+        progress.classList.add('hidden');
+        progress.innerHTML = '';
+        // Reset file input
+        document.getElementById('fileInput').value = '';
       }
 
       function closeUpload() {
-        document.getElementById("uploadModal").classList.add("hidden");
+        if (state.uploading) return; // Don't close while uploading
+        document.getElementById('uploadModal').classList.add('hidden');
+      }
+
+      function handleModalBackdropClick(event) {
+        if (event.target === document.getElementById('uploadModal') && !state.uploading) {
+          closeUpload();
+        }
       }
 
       function handleDrop(event) {
         event.preventDefault();
-        event.currentTarget.classList.remove("drag-over");
+        event.currentTarget.classList.remove('drag-over');
         handleFiles(event.dataTransfer.files);
       }
 
       async function handleFiles(files) {
-        // TODO: Upload via presigned URLs
-      }
+        if (!files || files.length === 0) return;
 
-      // --- Detail panel ---
-      function closeDetail() {
-        document.getElementById("detailPanel").classList.add("hidden");
-      }
+        const dropZone = document.getElementById('dropZone');
+        const progressArea = document.getElementById('uploadProgress');
 
-      // --- Navigation ---
-      document.querySelectorAll(".nav-item").forEach((item) => {
-        item.addEventListener("click", () => {
-          document.querySelectorAll(".nav-item").forEach((i) => i.classList.remove("active"));
-          item.classList.add("active");
-          currentView = item.dataset.view;
-          // TODO: Switch views
+        dropZone.classList.add('hidden');
+        progressArea.classList.remove('hidden');
+        progressArea.innerHTML = '';
+        state.uploading = true;
+
+        const fileArray = Array.from(files);
+
+        // Create progress items
+        fileArray.forEach((file, i) => {
+          progressArea.innerHTML += `
+            <div class="upload-item" id="upload-item-${i}">
+              <span class="upload-item-name">${escHtml(file.name)}</span>
+              <div class="upload-bar"><div class="upload-bar-fill" id="upload-fill-${i}" style="width:0%"></div></div>
+              <span id="upload-status-${i}" style="font-size:0.75rem;color:var(--text-secondary);">Preparing...</span>
+            </div>`;
         });
+
+        let uploadedCount = 0;
+        let failedCount = 0;
+
+        for (let i = 0; i < fileArray.length; i++) {
+          const file = fileArray[i];
+          const statusEl = document.getElementById(`upload-status-${i}`);
+          const fillEl = document.getElementById(`upload-fill-${i}`);
+
+          try {
+            // Step 1: Get presigned URL
+            statusEl.textContent = 'Getting upload URL...';
+            const urlData = await apiFetch('/api/assets/upload-url', {
+              method: 'POST',
+              body: JSON.stringify({
+                filename: file.name,
+                contentType: file.type || 'application/octet-stream',
+                fileSize: file.size,
+              }),
+            });
+
+            const { uploadUrl, assetId } = urlData;
+
+            // Step 2: Upload to presigned URL with progress
+            statusEl.textContent = 'Uploading...';
+            await uploadFileToPresignedUrl(uploadUrl, file, (progress) => {
+              const pct = Math.round(progress * 100);
+              fillEl.style.width = pct + '%';
+              statusEl.textContent = `${pct}%`;
+            });
+
+            fillEl.style.width = '100%';
+            statusEl.textContent = 'Confirming...';
+
+            // Step 3: Confirm upload
+            await apiFetch('/api/assets/confirm-upload', {
+              method: 'POST',
+              body: JSON.stringify({
+                assetId,
+                filename: file.name,
+                contentType: file.type || 'application/octet-stream',
+                fileSize: file.size,
+              }),
+            });
+
+            statusEl.textContent = 'Done';
+            statusEl.style.color = 'var(--success-color)';
+            uploadedCount++;
+
+          } catch (err) {
+            statusEl.textContent = `Failed: ${err.message}`;
+            statusEl.style.color = 'var(--danger-color)';
+            failedCount++;
+          }
+        }
+
+        state.uploading = false;
+
+        // Show confirm button and summary
+        progressArea.innerHTML += `
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
+            <span style="font-size:0.875rem;color:var(--text-secondary);">
+              ${uploadedCount} uploaded${failedCount ? `, ${failedCount} failed` : ''}
+            </span>
+            <button class="btn btn-primary btn-sm" onclick="finishUpload()">Done</button>
+          </div>`;
+
+        if (uploadedCount > 0) {
+          showToast(`${uploadedCount} file(s) uploaded successfully`, 'success');
+        }
+        if (failedCount > 0) {
+          showToast(`${failedCount} file(s) failed to upload`, 'error');
+        }
+      }
+
+      function finishUpload() {
+        closeUpload();
+        // Reload assets
+        state.page = 1;
+        loadAssets();
+      }
+
+      function uploadFileToPresignedUrl(url, file, onProgress) {
+        return new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) onProgress(e.loaded / e.total);
+          });
+          xhr.addEventListener('load', () => {
+            if (xhr.status >= 200 && xhr.status < 300) resolve();
+            else reject(new Error(`Upload failed: ${xhr.status}`));
+          });
+          xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
+          xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
+          xhr.open('PUT', url);
+          xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+          xhr.send(file);
+        });
+      }
+
+      // =========================================================
+      // SEARCH
+      // =========================================================
+      let searchTimeout;
+      document.getElementById('searchInput').addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        const query = e.target.value.trim();
+        searchTimeout = setTimeout(() => {
+          state.searchQuery = query;
+          state.page = 1;
+          state.selectedCollection = null;
+          loadAssets();
+        }, 350);
       });
 
-      // --- View toggle ---
-      document.querySelectorAll(".view-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          document.querySelectorAll(".view-btn").forEach((b) => b.classList.remove("active"));
-          btn.classList.add("active");
-          const grid = document.getElementById("assetGrid");
-          const list = document.getElementById("assetList");
-          if (btn.dataset.view === "grid") {
-            grid.classList.remove("hidden");
-            list.classList.add("hidden");
+      // =========================================================
+      // VIEW TOGGLE (grid / list)
+      // =========================================================
+      document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const grid = document.getElementById('assetGrid');
+          const list = document.getElementById('assetList');
+          state.view = btn.dataset.view;
+          if (state.view === 'grid') {
+            grid.classList.remove('hidden');
+            list.classList.add('hidden');
           } else {
-            grid.classList.add("hidden");
-            list.classList.remove("hidden");
+            grid.classList.add('hidden');
+            list.classList.remove('hidden');
           }
         });
       });
 
-      // --- Search ---
-      let searchTimeout;
-      document.getElementById("searchInput").addEventListener("input", (e) => {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-          // TODO: Search via /api/search?q=...
-        }, 300);
+      // =========================================================
+      // COLLECTIONS
+      // =========================================================
+      async function loadCollections() {
+        if (state.isDemo) {
+          document.getElementById('collectionsContainer').innerHTML = `
+            <div class="empty-state">
+              <h2>Collections unavailable</h2>
+              <p>Upgrade to PROFESSIONAL to create and manage collections.</p>
+              <a href="https://app.osaas.io" target="_blank" class="btn btn-primary">Upgrade Plan</a>
+            </div>`;
+          return;
+        }
+        try {
+          const data = await apiFetch('/api/collections');
+          state.collections = data.collections || [];
+          renderCollections();
+        } catch (err) {
+          showToast(`Failed to load collections: ${err.message}`, 'error');
+          document.getElementById('collectionsContainer').innerHTML = `
+            <div class="empty-state">
+              <h2>Failed to load collections</h2>
+              <p>${escHtml(err.message)}</p>
+              <button class="btn btn-primary" onclick="loadCollections()">Retry</button>
+            </div>`;
+        }
+      }
+
+      function renderCollections() {
+        const container = document.getElementById('collectionsContainer');
+        if (state.collections.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <h2>No collections yet</h2>
+              <p>Create a collection to organize your assets.</p>
+              <button class="btn btn-primary" onclick="promptCreateCollection()">New Collection</button>
+            </div>`;
+          return;
+        }
+        container.innerHTML = state.collections.map(c => `
+          <div class="collection-card" onclick="browseCollection('${escHtml(c.id)}', '${escHtml(c.name)}')">
+            <div class="collection-card-info">
+              <h4>${escHtml(c.name)}</h4>
+              <p>${escHtml(c.description || 'No description')}</p>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+              <span class="collection-card-count">${c.assetCount || 0} assets</span>
+              <button class="btn-icon" title="Delete collection" onclick="event.stopPropagation(); deleteCollection('${escHtml(c.id)}', '${escHtml(c.name)}')">&#128465;</button>
+            </div>
+          </div>`).join('');
+      }
+
+      function promptCreateCollection(editId = null, editName = '', editDesc = '') {
+        state.editingCollectionId = editId;
+        const modal = document.getElementById('collectionModal');
+        document.getElementById('collectionModalTitle').textContent = editId ? 'Edit Collection' : 'New Collection';
+        document.getElementById('collectionNameInput').value = editName;
+        document.getElementById('collectionDescInput').value = editDesc;
+        modal.classList.remove('hidden');
+        setTimeout(() => document.getElementById('collectionNameInput').focus(), 50);
+      }
+
+      function closeCollectionModal() {
+        document.getElementById('collectionModal').classList.add('hidden');
+        state.editingCollectionId = null;
+      }
+
+      function handleCollectionModalBackdrop(event) {
+        if (event.target === document.getElementById('collectionModal')) closeCollectionModal();
+      }
+
+      async function submitCollectionForm() {
+        const name = document.getElementById('collectionNameInput').value.trim();
+        const description = document.getElementById('collectionDescInput').value.trim();
+        if (!name) {
+          showToast('Collection name is required', 'error');
+          return;
+        }
+        try {
+          if (state.editingCollectionId) {
+            const data = await apiFetch(`/api/collections/${encodeURIComponent(state.editingCollectionId)}`, {
+              method: 'PUT',
+              body: JSON.stringify({ name, description }),
+            });
+            const idx = state.collections.findIndex(c => c.id === state.editingCollectionId);
+            if (idx !== -1) state.collections[idx] = data.collection;
+            showToast('Collection updated', 'success');
+          } else {
+            const data = await apiFetch('/api/collections', {
+              method: 'POST',
+              body: JSON.stringify({ name, description }),
+            });
+            state.collections.push(data.collection);
+            showToast('Collection created', 'success');
+          }
+          closeCollectionModal();
+          renderCollections();
+        } catch (err) {
+          showToast(`Failed to save collection: ${err.message}`, 'error');
+        }
+      }
+
+      async function deleteCollection(id, name) {
+        if (!confirm(`Delete collection "${name}"? Assets will not be deleted.`)) return;
+        try {
+          await apiFetch(`/api/collections/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          state.collections = state.collections.filter(c => c.id !== id);
+          showToast('Collection deleted', 'success');
+          renderCollections();
+        } catch (err) {
+          showToast(`Failed to delete collection: ${err.message}`, 'error');
+        }
+      }
+
+      function browseCollection(collectionId, collectionName) {
+        // Switch to assets view filtered by collection
+        state.selectedCollection = collectionId;
+        state.searchQuery = '';
+        state.page = 1;
+        document.getElementById('searchInput').value = '';
+
+        // Update nav
+        document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+        document.querySelector('.nav-item[data-section="assets"]').classList.add('active');
+
+        // Show assets section with back button
+        ['assets', 'collections', 'storage'].forEach(s => {
+          document.getElementById(`section${capitalize(s)}`).classList.toggle('hidden', s !== 'assets');
+        });
+        state.currentSection = 'assets';
+
+        // Add a back/filter label to toolbar
+        const toolbar = document.querySelector('.toolbar');
+        let filterLabel = document.getElementById('collectionFilterLabel');
+        if (!filterLabel) {
+          filterLabel = document.createElement('div');
+          filterLabel.id = 'collectionFilterLabel';
+          filterLabel.style.cssText = 'padding: 0 1.5rem; font-size: 0.8125rem; color: var(--text-secondary); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;';
+          toolbar.parentNode.insertBefore(filterLabel, toolbar);
+        }
+        filterLabel.innerHTML = `
+          <button class="back-btn" onclick="clearCollectionFilter()">&#8592; All Assets</button>
+          <span style="color:var(--border)">|</span>
+          Collection: <strong style="color:var(--text-primary);">${escHtml(collectionName)}</strong>`;
+        filterLabel.style.display = 'flex';
+
+        loadAssets();
+      }
+
+      function clearCollectionFilter() {
+        state.selectedCollection = null;
+        const label = document.getElementById('collectionFilterLabel');
+        if (label) label.style.display = 'none';
+        loadAssets();
+      }
+
+      // =========================================================
+      // STORAGE
+      // =========================================================
+      async function loadStorageInfo() {
+        if (state.isDemo) {
+          document.getElementById('storageContainer').innerHTML = `
+            <div class="empty-state">
+              <h2>Storage info unavailable</h2>
+              <p>Upgrade to PROFESSIONAL to view storage statistics.</p>
+              <a href="https://app.osaas.io" target="_blank" class="btn btn-primary">Upgrade Plan</a>
+            </div>`;
+          return;
+        }
+        try {
+          const data = await apiFetch('/api/storage/status');
+          renderStorageInfo(data.storage);
+        } catch (err) {
+          showToast(`Failed to load storage info: ${err.message}`, 'error');
+          document.getElementById('storageContainer').innerHTML = `
+            <div class="empty-state">
+              <h2>Failed to load storage info</h2>
+              <p>${escHtml(err.message)}</p>
+              <button class="btn btn-primary" onclick="loadStorageInfo()">Retry</button>
+            </div>`;
+        }
+      }
+
+      function renderStorageInfo(storage) {
+        const container = document.getElementById('storageContainer');
+        const byType = storage.byType || {};
+        const typeRows = Object.entries(byType).map(([type, info]) => `
+          <tr>
+            <td>${escHtml(type)}</td>
+            <td>${escHtml(String(info.count || 0))} objects</td>
+            <td>${escHtml(formatFileSize(info.sizeBytes || 0))}</td>
+          </tr>`).join('');
+
+        container.innerHTML = `
+          <div class="storage-stat-grid">
+            <div class="storage-stat-card">
+              <div class="storage-stat-label">Total Objects</div>
+              <div class="storage-stat-value">${storage.totalObjects || 0}</div>
+            </div>
+            <div class="storage-stat-card">
+              <div class="storage-stat-label">Total Size</div>
+              <div class="storage-stat-value">${formatFileSize(storage.totalSizeBytes || 0)}</div>
+            </div>
+          </div>
+          ${typeRows ? `
+            <table class="storage-breakdown-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Objects</th>
+                  <th>Size</th>
+                </tr>
+              </thead>
+              <tbody>${typeRows}</tbody>
+            </table>` : '<p style="color:var(--text-secondary);font-size:0.875rem;">No storage data available.</p>'}`;
+      }
+
+      // =========================================================
+      // FORMATTING HELPERS
+      // =========================================================
+      function formatFileSize(bytes) {
+        if (!bytes || bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+      }
+
+      function formatDuration(seconds) {
+        if (!seconds) return '';
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        return `${m}:${s.toString().padStart(2, '0')}`;
+      }
+
+      function formatDate(dateStr) {
+        if (!dateStr) return '—';
+        try {
+          return new Date(dateStr).toLocaleString(undefined, {
+            year: 'numeric', month: 'short', day: 'numeric',
+            hour: '2-digit', minute: '2-digit',
+          });
+        } catch {
+          return dateStr;
+        }
+      }
+
+      function escHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      // =========================================================
+      // KEYBOARD SHORTCUTS
+      // =========================================================
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeDetail();
+          closeUpload();
+          closeCollectionModal();
+        }
       });
 
-      // --- Init ---
+      // =========================================================
+      // ANALYTICS (Umami - conditional)
+      // =========================================================
+      if (window.__UMAMI_URL && window.__UMAMI_SITE_ID) {
+        const script = document.createElement('script');
+        script.defer = true;
+        script.src = window.__UMAMI_URL;
+        script.setAttribute('data-website-id', window.__UMAMI_SITE_ID);
+        document.head.appendChild(script);
+      }
+
+      // =========================================================
+      // INIT
+      // =========================================================
       checkAuth();
     </script>
   </body>
