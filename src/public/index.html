@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Open Media Management - Cloud Media Asset Management</title>
+    <meta
+      name="description"
+      content="Open Media Management: Lightweight cloud MAM built on open source. Upload, organize, search, and preview media assets. Built on Eyevinn Open Source Cloud."
+    />
+    <link rel="canonical" href="https://mediamanagement.apps.osaas.io" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <!-- Landing page (unauthenticated) -->
+    <div id="landing" class="hidden">
+      <header class="landing-header">
+        <div class="landing-logo">Open Media Management</div>
+        <button class="btn btn-primary" onclick="signIn()">
+          Sign in with OSC
+        </button>
+      </header>
+      <main class="landing-hero">
+        <h1>Media Asset Management,<br />without the enterprise price tag</h1>
+        <p class="hero-subtitle">
+          Upload, organize, search, and preview your media library.
+          Built entirely on open source. No vendor lock-in.
+        </p>
+        <button class="btn btn-primary btn-lg" onclick="signIn()">
+          Get Started Free
+        </button>
+        <p class="hero-note">
+          Requires an <a href="https://app.osaas.io" target="_blank">Eyevinn OSC</a> account.
+          PROFESSIONAL plan (199 EUR/mo) for full access.
+        </p>
+      </main>
+    </div>
+
+    <!-- App shell (authenticated) -->
+    <div id="app" class="hidden">
+      <nav class="sidebar">
+        <div class="sidebar-header">
+          <span class="sidebar-logo">OMM</span>
+          <span class="sidebar-title">Media Management</span>
+        </div>
+        <ul class="sidebar-nav">
+          <li class="nav-item active" data-view="library">All Assets</li>
+          <li class="nav-item" data-view="collections">Collections</li>
+          <li class="nav-item" data-view="storage">Storage</li>
+        </ul>
+        <div class="sidebar-footer">
+          <div class="plan-badge" id="planBadge">FREE</div>
+          <button class="btn btn-sm btn-secondary" onclick="signOut()">
+            Sign Out
+          </button>
+        </div>
+      </nav>
+
+      <main class="main-content">
+        <!-- Upgrade banner for non-functional plans -->
+        <div id="upgradeBanner" class="upgrade-banner hidden">
+          <p>
+            You're viewing a demo library.
+            <a href="https://app.osaas.io" target="_blank">Upgrade to PROFESSIONAL</a>
+            to upload and manage your own media.
+          </p>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+          <div class="search-bar">
+            <input
+              type="text"
+              id="searchInput"
+              placeholder="Search assets..."
+              autocomplete="off"
+            />
+          </div>
+          <div class="toolbar-actions">
+            <button class="btn btn-primary" id="uploadBtn" onclick="openUpload()">
+              Upload
+            </button>
+            <div class="view-toggle">
+              <button class="view-btn active" data-view="grid" title="Grid view">
+                &#9638;
+              </button>
+              <button class="view-btn" data-view="list" title="List view">
+                &#9776;
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Asset grid -->
+        <div id="assetGrid" class="asset-grid">
+          <div class="empty-state">
+            <h2>Your media library is empty</h2>
+            <p>Upload your first asset to get started.</p>
+            <button class="btn btn-primary" onclick="openUpload()">
+              Upload Media
+            </button>
+          </div>
+        </div>
+
+        <!-- Asset list (hidden by default) -->
+        <div id="assetList" class="asset-list hidden"></div>
+      </main>
+
+      <!-- Asset detail panel -->
+      <aside id="detailPanel" class="detail-panel hidden">
+        <div class="detail-header">
+          <h3 id="detailTitle">Asset Title</h3>
+          <button class="btn-close" onclick="closeDetail()">&times;</button>
+        </div>
+        <div id="detailPreview" class="detail-preview"></div>
+        <div id="detailMeta" class="detail-meta"></div>
+      </aside>
+    </div>
+
+    <!-- Upload modal -->
+    <div id="uploadModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Upload Media</h3>
+          <button class="btn-close" onclick="closeUpload()">&times;</button>
+        </div>
+        <div
+          id="dropZone"
+          class="drop-zone"
+          ondragover="event.preventDefault(); this.classList.add('drag-over')"
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="handleDrop(event)"
+        >
+          <p>Drag and drop files here</p>
+          <p class="drop-zone-sub">or</p>
+          <label class="btn btn-secondary">
+            Choose Files
+            <input type="file" id="fileInput" multiple hidden onchange="handleFiles(this.files)" />
+          </label>
+          <p class="drop-zone-formats">MP4, MOV, MXF, WAV, MP3, JPEG, PNG, TIFF, PDF (max 5 GB)</p>
+        </div>
+        <div id="uploadProgress" class="upload-progress hidden"></div>
+      </div>
+    </div>
+
+    <script>
+      // --- App state ---
+      let authState = { loggedIn: false, plan: null, isPaid: false, isFunctional: false };
+      let currentView = "library";
+
+      // --- Auth ---
+      function signIn() {
+        window.location.href = "/auth/signin";
+      }
+
+      function signOut() {
+        window.location.href = "/auth/signout";
+      }
+
+      async function checkAuth() {
+        try {
+          const res = await fetch("/auth/status");
+          authState = await res.json();
+        } catch {
+          authState = { loggedIn: false, plan: null, isPaid: false, isFunctional: false };
+        }
+        render();
+      }
+
+      // --- Render ---
+      function render() {
+        const landing = document.getElementById("landing");
+        const app = document.getElementById("app");
+        const upgradeBanner = document.getElementById("upgradeBanner");
+        const planBadge = document.getElementById("planBadge");
+        const uploadBtn = document.getElementById("uploadBtn");
+
+        if (!authState.loggedIn) {
+          landing.classList.remove("hidden");
+          app.classList.add("hidden");
+          return;
+        }
+
+        landing.classList.add("hidden");
+        app.classList.remove("hidden");
+        planBadge.textContent = authState.plan || "FREE";
+
+        if (!authState.isFunctional) {
+          upgradeBanner.classList.remove("hidden");
+          uploadBtn.disabled = true;
+          loadDemoLibrary();
+        } else {
+          upgradeBanner.classList.add("hidden");
+          uploadBtn.disabled = false;
+          loadAssets();
+        }
+      }
+
+      // --- Assets ---
+      async function loadAssets() {
+        // TODO: Fetch from /api/assets
+      }
+
+      function loadDemoLibrary() {
+        // TODO: Show pre-populated demo assets
+      }
+
+      // --- Upload ---
+      function openUpload() {
+        if (!authState.isFunctional) return;
+        document.getElementById("uploadModal").classList.remove("hidden");
+      }
+
+      function closeUpload() {
+        document.getElementById("uploadModal").classList.add("hidden");
+      }
+
+      function handleDrop(event) {
+        event.preventDefault();
+        event.currentTarget.classList.remove("drag-over");
+        handleFiles(event.dataTransfer.files);
+      }
+
+      async function handleFiles(files) {
+        // TODO: Upload via presigned URLs
+      }
+
+      // --- Detail panel ---
+      function closeDetail() {
+        document.getElementById("detailPanel").classList.add("hidden");
+      }
+
+      // --- Navigation ---
+      document.querySelectorAll(".nav-item").forEach((item) => {
+        item.addEventListener("click", () => {
+          document.querySelectorAll(".nav-item").forEach((i) => i.classList.remove("active"));
+          item.classList.add("active");
+          currentView = item.dataset.view;
+          // TODO: Switch views
+        });
+      });
+
+      // --- View toggle ---
+      document.querySelectorAll(".view-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".view-btn").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          const grid = document.getElementById("assetGrid");
+          const list = document.getElementById("assetList");
+          if (btn.dataset.view === "grid") {
+            grid.classList.remove("hidden");
+            list.classList.add("hidden");
+          } else {
+            grid.classList.add("hidden");
+            list.classList.remove("hidden");
+          }
+        });
+      });
+
+      // --- Search ---
+      let searchTimeout;
+      document.getElementById("searchInput").addEventListener("input", (e) => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          // TODO: Search via /api/search?q=...
+        }, 300);
+      });
+
+      // --- Init ---
+      checkAuth();
+    </script>
+  </body>
+</html>
