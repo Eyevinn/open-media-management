@@ -138,6 +138,7 @@ app.use(
           "https://app.osaas.io",
           "https://*.osaas.io",
           "https://*.auto.prod.osaas.io",
+          "https://mediamanagement.apps.osaas.io",
         ],
       },
     },
