@@ -187,16 +187,40 @@ export async function ensureMinioInstance(
   // Check for existing instance first (idempotent)
   const existing = await getInstance(ctx, MINIO_SERVICE_ID, name, sat);
   if (existing) {
-    logger.info(`MinIO instance "${name}" already exists`);
-    return extractMinioCredentials(existing);
+    const creds = extractMinioCredentials(existing);
+
+    // The OSC API may not return sensitive fields (RootUser/RootPassword) for
+    // existing instances.  If credentials are missing we must delete and
+    // recreate the instance so that we get a fresh set back.
+    if (!creds.accessKeyId || !creds.secretAccessKey) {
+      logger.warn(
+        `MinIO instance "${name}" exists but credentials are missing ` +
+          `(RootUser=${typeof existing.RootUser}, RootPassword=${typeof existing.RootPassword}). ` +
+          `Deleting and recreating with explicit credentials.`,
+      );
+      await withRetry(
+        () => removeInstance(ctx, MINIO_SERVICE_ID, name, sat),
+        `removeInstance(${MINIO_SERVICE_ID}, ${name})`,
+      );
+      // Fall through to creation below
+    } else {
+      logger.info(`MinIO instance "${name}" already exists with valid credentials`);
+      return creds;
+    }
   }
 
+  // Generate explicit credentials so they are always known and returned.
+  const rootUser = `mam${Date.now().toString(36)}`;
+  const rootPassword = generatePassword();
+
   // Create new instance with retry
-  logger.info(`Creating MinIO instance "${name}"`);
+  logger.info(`Creating MinIO instance "${name}" with explicit credentials`);
   const instance = await withRetry(
     () =>
       createInstance(ctx, MINIO_SERVICE_ID, sat, {
         name,
+        RootUser: rootUser,
+        RootPassword: rootPassword,
       }),
     `createInstance(${MINIO_SERVICE_ID}, ${name})`,
   );
@@ -206,7 +230,13 @@ export async function ensureMinioInstance(
   await waitForInstanceReady(MINIO_SERVICE_ID, name, ctx);
   logger.info(`MinIO instance "${name}" is ready`);
 
-  return extractMinioCredentials(instance);
+  // Prefer the explicit values we provided in case the response redacts them
+  const creds = extractMinioCredentials(instance);
+  return {
+    ...creds,
+    accessKeyId: creds.accessKeyId || rootUser,
+    secretAccessKey: creds.secretAccessKey || rootPassword,
+  };
 }
 
 /**
@@ -224,10 +254,19 @@ function extractMinioCredentials(instance: Record<string, unknown>): MinioCreden
     | undefined;
   const consoleUrl = resources?.app?.url ?? "";
 
+  const accessKeyId = instance.RootUser as string | undefined;
+  const secretAccessKey = instance.RootPassword as string | undefined;
+
+  logger.info(
+    `extractMinioCredentials: endpoint=${instance.url}, ` +
+      `RootUser=${accessKeyId ? "present" : "MISSING"}, ` +
+      `RootPassword=${secretAccessKey ? "present" : "MISSING"}`,
+  );
+
   return {
     endpoint: instance.url as string,
-    accessKeyId: instance.RootUser as string,
-    secretAccessKey: instance.RootPassword as string,
+    accessKeyId: accessKeyId ?? "",
+    secretAccessKey: secretAccessKey ?? "",
     consoleUrl: typeof consoleUrl === "string" ? consoleUrl : "",
   };
 }
