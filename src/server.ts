@@ -124,6 +124,9 @@ function getS3(creds: MinioCredentials): S3Client {
 const app = express();
 const PORT = parseInt(process.env.PORT || "8080", 10);
 
+// Trust proxy so X-Forwarded-Proto/Host headers are respected
+app.set("trust proxy", 1);
+
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -154,9 +157,10 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: true,
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000,
+      sameSite: "lax",
     },
   }),
 );
@@ -169,12 +173,32 @@ const UMAMI_URL = process.env.UMAMI_URL;
 const UMAMI_SITE_ID = process.env.UMAMI_SITE_ID;
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Derive the public-facing base URL from the incoming request.
+ *
+ * When behind a reverse proxy (OSC / nginx) the original protocol and host
+ * are forwarded via X-Forwarded-Proto and X-Forwarded-Host headers.
+ * This ensures OAuth redirect URIs always match the domain the user is
+ * actually visiting, regardless of which internal URL OSC sets in APP_URL.
+ */
+function getBaseUrl(req: express.Request): string {
+  const proto =
+    (req.headers["x-forwarded-proto"] as string) || req.protocol || "https";
+  const host =
+    (req.headers["x-forwarded-host"] as string) || req.get("host") || "localhost";
+  return `${proto}://${host}`;
+}
+
+// ---------------------------------------------------------------------------
 // Auth routes
 // ---------------------------------------------------------------------------
 
 app.get("/auth/signin", async (req, res) => {
   try {
-    const baseUrl = process.env.APP_URL || `http://localhost:${PORT}`;
+    const baseUrl = getBaseUrl(req);
     const redirectUri = `${baseUrl}/auth/callback`;
 
     if (!req.session.clientId) {
@@ -211,7 +235,7 @@ app.get("/auth/callback", async (req, res) => {
       return res.redirect("/?error=invalid_callback");
     }
 
-    const baseUrl = process.env.APP_URL || `http://localhost:${PORT}`;
+    const baseUrl = getBaseUrl(req);
     const redirectUri = `${baseUrl}/auth/callback`;
 
     const tokens = await exchangeCode(
