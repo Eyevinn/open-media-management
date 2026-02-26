@@ -56,19 +56,26 @@ import type { Asset } from "./lib/metadata.js";
 Configure({ component: "open-media-management" });
 const log = Log();
 
-const PAID_PLANS = [
+// Plan tiers ranked lowest to highest -- use index comparison for minimum-tier checks.
+// NEVER use exact matching (plan === "PROFESSIONAL") as it blocks higher-tier users.
+const PLAN_TIERS = [
+  "FREE",
   "PERSONAL",
   "PROFESSIONAL",
   "PRO",
-  "ENTERPRISE",
   "BUSINESS",
-];
-const MAM_FUNCTIONAL_PLANS = [
-  "PROFESSIONAL",
-  "PRO",
   "ENTERPRISE",
-  "BUSINESS",
 ];
+
+function meetsMinimumTier(userPlan: string, requiredTier: string): boolean {
+  const userIdx = PLAN_TIERS.indexOf(userPlan.toUpperCase());
+  const requiredIdx = PLAN_TIERS.indexOf(requiredTier);
+  // Unknown plans treated as FREE (index -1 < any valid tier)
+  return userIdx >= requiredIdx;
+}
+
+const MINIMUM_FUNCTIONAL_TIER = "PROFESSIONAL";
+const MINIMUM_PAID_TIER = "PERSONAL";
 
 // ---------------------------------------------------------------------------
 // Session type extensions
@@ -262,7 +269,7 @@ app.get("/auth/callback", async (req, res) => {
       });
       if (planResponse.ok) {
         const plan = (await planResponse.json()) as Record<string, string>;
-        req.session.userPlan = plan.name || "FREE";
+        req.session.userPlan = (plan.planType || plan.name || "FREE").toUpperCase();
       } else {
         req.session.userPlan = "FREE";
       }
@@ -279,13 +286,14 @@ app.get("/auth/callback", async (req, res) => {
 
 app.get("/auth/status", (req, res) => {
   const loggedIn = !!req.session.accessToken;
+  const userPlan = req.session.userPlan || "FREE";
   res.json({
     ok: true,
     loggedIn,
-    plan: loggedIn ? req.session.userPlan || "FREE" : null,
-    isPaid: loggedIn ? PAID_PLANS.includes(req.session.userPlan || "") : false,
+    plan: loggedIn ? userPlan : null,
+    isPaid: loggedIn ? meetsMinimumTier(userPlan, MINIMUM_PAID_TIER) : false,
     isFunctional: loggedIn
-      ? MAM_FUNCTIONAL_PLANS.includes(req.session.userPlan || "")
+      ? meetsMinimumTier(userPlan, MINIMUM_FUNCTIONAL_TIER)
       : false,
   });
 });
@@ -317,9 +325,9 @@ function requireFunctionalPlan(
   res: express.Response,
   next: express.NextFunction,
 ): void {
-  if (!MAM_FUNCTIONAL_PLANS.includes(req.session.userPlan || "")) {
+  if (!meetsMinimumTier(req.session.userPlan || "", MINIMUM_FUNCTIONAL_TIER)) {
     res.status(403).json({
-      error: "Upgrade to PROFESSIONAL plan required",
+      error: "A PROFESSIONAL plan or higher is required",
       upgradeUrl: "https://app.osaas.io",
     });
     return;

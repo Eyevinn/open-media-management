@@ -445,7 +445,7 @@
         </button>
         <p class="hero-note">
           Requires an <a href="https://app.osaas.io" target="_blank">Eyevinn OSC</a> account.
-          PROFESSIONAL plan (199 EUR/mo) for full access.
+          PROFESSIONAL plan or higher for full access.
         </p>
       </main>
     </div>
@@ -475,7 +475,7 @@
         <div id="upgradeBanner" class="upgrade-banner hidden">
           <p>
             You're viewing a demo library.
-            <a href="https://app.osaas.io" target="_blank">Upgrade to PROFESSIONAL</a>
+            <a href="https://app.osaas.io" target="_blank">Upgrade to a PROFESSIONAL plan or higher</a>
             to upload and manage your own media.
           </p>
         </div>
@@ -711,7 +711,7 @@
         const uploadBtn = document.getElementById('uploadBtn');
         if (uploadBtn) {
           uploadBtn.disabled = !state.isFunctional;
-          uploadBtn.title = state.isFunctional ? '' : 'Upgrade to PROFESSIONAL to upload';
+          uploadBtn.title = state.isFunctional ? '' : 'A PROFESSIONAL plan or higher is required to upload';
         }
 
         // Collections / storage buttons hidden in demo
@@ -814,7 +814,7 @@
         } catch (err) {
           setGridLoading(false);
           showToast(`Failed to load demo assets: ${err.message}`, 'error');
-          renderEmptyState('No demo assets available', 'Sign up for a PROFESSIONAL plan to upload your own.');
+          renderEmptyState('No demo assets available', 'Sign up for a PROFESSIONAL plan or higher to upload your own.');
         }
       }
 
@@ -841,7 +841,7 @@
               ? 'No assets match your search'
               : 'Your media library is empty';
           const emptyHint = state.isDemo
-            ? 'Upgrade to PROFESSIONAL to upload your own media.'
+            ? 'A PROFESSIONAL plan or higher is required to upload your own media.'
             : state.searchQuery
               ? 'Try a different search term.'
               : 'Upload your first asset to get started.';
@@ -1183,7 +1183,7 @@
       // =========================================================
       function openUpload() {
         if (!state.isFunctional) {
-          showToast('Upgrade to PROFESSIONAL to upload media', 'info');
+          showToast('A PROFESSIONAL plan or higher is required to upload media', 'info');
           return;
         }
         const modal = document.getElementById('uploadModal');
@@ -1379,7 +1379,7 @@
           document.getElementById('collectionsContainer').innerHTML = `
             <div class="empty-state">
               <h2>Collections unavailable</h2>
-              <p>Upgrade to PROFESSIONAL to create and manage collections.</p>
+              <p>A PROFESSIONAL plan or higher is required to create and manage collections.</p>
               <a href="https://app.osaas.io" target="_blank" class="btn btn-primary">Upgrade Plan</a>
             </div>`;
           return;
@@ -1535,7 +1535,7 @@
           document.getElementById('storageContainer').innerHTML = `
             <div class="empty-state">
               <h2>Storage info unavailable</h2>
-              <p>Upgrade to PROFESSIONAL to view storage statistics.</p>
+              <p>A PROFESSIONAL plan or higher is required to view storage statistics.</p>
               <a href="https://app.osaas.io" target="_blank" class="btn btn-primary">Upgrade Plan</a>
             </div>`;
           return;
