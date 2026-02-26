@@ -348,9 +348,14 @@ async function buildValkeyConnection(
     );
   }
 
-  const portsData = (await response.json()) as Record<string, unknown>;
-  const externalIp = portsData.externalIp as string;
-  const externalPort = portsData.externalPort as number;
+  const portsData = await response.json();
+
+  // The ports endpoint returns an array of port mappings, e.g.:
+  // [{ externalIp: "1.2.3.4", externalPort: 10508, internalPort: 6379 }]
+  // Extract the first entry (the Redis port).
+  const portEntry = Array.isArray(portsData) ? portsData[0] : portsData;
+  const externalIp = portEntry?.externalIp as string;
+  const externalPort = portEntry?.externalPort as number;
 
   if (!externalIp || !externalPort) {
     throw new Error(
